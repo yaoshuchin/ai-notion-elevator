@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI 大樓：一張 Notion 鑰匙卡搭三台電梯</title>
+  <style>
+    :root { --bg: #1e2230; --panel: #151824; --lime: #bbf246; --teal: #2dd4bf; --text: #f8fafc; --muted: #94a3b8; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { font-family: system-ui, -apple-system, "Noto Sans TC", sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+    code, pre, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    /* 門禁密碼鎖 (密碼: nato) */
+    #password-gate { position: fixed; inset: 0; z-index: 999; background: rgba(19,22,32,0.96); backdrop-filter: blur(10px); display: flex; align-items: center; justify-content: center; padding: 16px; }
+    #password-gate.hidden { display: none; }
+    .gate-card { width: 100%; max-width: 440px; background: var(--bg); border: 2px solid #334155; border-radius: 24px; padding: 32px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6); }
+    .badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; background: rgba(187,242,70,0.15); color: var(--lime); border: 1px solid rgba(187,242,70,0.4); margin-bottom: 14px; }
+    .gate-input-box { background: var(--panel); border: 1px solid #334155; border-radius: 16px; padding: 16px; margin: 18px 0; }
+    .gate-input { width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid #475569; background: #0f172a; color: #fff; font-size: 16px; margin-top: 8px; outline: none; }
+    .gate-input:focus { border-color: var(--lime); }
+    .btn-lime { width: 100%; padding: 14px; border: none; border-radius: 12px; background: var(--lime); color: #0f172a; font-weight: 900; font-size: 16px; cursor: pointer; transition: 0.2s; }
+    .btn-lime:hover { filter: brightness(1.08); }
+    .err-msg { color: #fb7185; font-size: 13px; font-weight: 700; margin-top: 8px; display: none; }
+    /* 頂部電梯導覽列 */
+    header { position: sticky; top: 0; z-index: 50; background: rgba(21,24,36,0.95); backdrop-filter: blur(8px); border-bottom: 1px solid #1e293b; padding: 10px 16px; }
+    .nav-wrap { max-width: 1200px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+    .floor-nav { display: flex; gap: 6px; overflow-x: auto; padding: 4px 0; }
+    .floor-btn { padding: 6px 11px; border-radius: 8px; border: 1px solid #334155; background: #1e293b; color: #cbd5e1; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; text-decoration: none; }
+    .floor-btn:hover, .floor-btn.active { background: var(--lime); color: #0f172a; border-color: var(--lime); }
+    /* 主內容區 */
+    main { max-width: 1120px; margin: 0 auto; padding: 32px 16px 80px; display: flex; flex-direction: column; gap: 48px; }
+    section { scroll-margin-top: 76px; }
+    .hero { background: linear-gradient(135deg, #252a3d, #161926); border: 1px solid #334155; border-radius: 24px; padding: 32px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; align-items: center; }
+    h1, h2 { font-weight: 900; letter-spacing: -0.02em; }
+    h2 { font-size: 26px; margin-bottom: 6px; color: #fff; }
+    .sub { color: var(--muted); font-size: 14px; margin-bottom: 16px; }
+    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+    .card-white { background: #ffffff; color: #0f172a; border-radius: 18px; padding: 20px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3); }
+    .card-white h3 { font-size: 17px; font-weight: 900; margin-bottom: 8px; }
+    .card-white p, .card-white li { font-size: 14px; color: #334155; }
+    .card-white ul, .card-white ol { padding-left: 18px; }
+    .strike { text-decoration: line-through; color: #94a3b8; font-size: 12px; margin-bottom: 4px; }
+    .panel-dark { background: var(--panel); border: 1px solid #334155; border-radius: 18px; padding: 20px; }
+    pre { background: #090d16; color: #6ee7b7; padding: 14px; border-radius: 12px; overflow-x: auto; font-size: 13px; border: 1px solid #1e293b; margin-top: 10px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; text-align: left; }
+    th { background: #f8fafc; font-weight: 800; color: #1e293b; }
+    .tab-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .tab-btn { padding: 7px 14px; border-radius: 10px; border: 1px solid #334155; background: #1e293b; color: #e2e8f0; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .tab-btn.active { background: var(--lime); color: #0f172a; border-color: var(--lime); }
+    .footer-glow { text-align: center; padding-top: 24px; border-top: 1px solid #1e293b; }
+    .access-text { font-size: 40px; font-weight: 900; letter-spacing: 0.12em; color: var(--teal); text-shadow: 0 0 24px rgba(45,212,191,0.6); }
+  </style>
+</head>
+<body>
+  <!-- 門禁密碼遮罩 (預設密碼: nato) -->
+  <div id="password-gate">
+    <div class="gate-card">
+      <span class="badge">🔐 SECURITY GATE · 門禁驗證</span>
+      <h1 style="font-size:24px;margin-bottom:8px;">AI 大樓：一張 Notion 鑰匙卡搭三台電梯</h1>
+      <p style="font-size:14px;color:#cbd5e1;">請輸入大樓通行密碼以解鎖電梯導覽系統（預設通行密碼：4 個英文字母）。</p>
+      <div class="gate-input-box">
+        <div class="mono" style="font-size:11px;color:#94a3b8;display:flex;justify-content:space-between;">
+          <span>CARD READER STATUS</span>
+          <span id="gate-led" style="color:#fbbf24;">● WAITING</span>
+        </div>
+        <input id="pwd-input" class="gate-input mono" type="password" placeholder="請輸入通行密碼..." autocomplete="off" />
+        <div id="pwd-err" class="err-msg">❌ 通行密碼錯誤，請重新輸入！</div>
+      </div>
+      <button id="unlock-btn" class="btn-lime" type="button">🔑 刷卡解鎖進入大樓</button>
+    </div>
+  </div>
+
+  <!-- 頂部電梯導覽列 -->
+  <header>
+    <div class="nav-wrap">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="mono" style="background:#0f172a;color:var(--lime);border:1px solid var(--lime);padding:3px 9px;border-radius:8px;font-weight:800;font-size:13px;">🛗 AI 大樓</span>
+      </div>
+      <nav class="floor-nav">
+        <a href="#lobby" class="floor-btn active">▲ 大廳</a>
+        <a href="#f1" class="floor-btn">1F 查核大廳</a>
+        <a href="#f2" class="floor-btn">2F 選路線</a>
+        <a href="#f3" class="floor-btn">3F 打卡</a>
+        <a href="#f4" class="floor-btn">4F 開房門</a>
+        <a href="#f5" class="floor-btn">5F 放鑰匙</a>
+        <a href="#f6" class="floor-btn">6F 三台電梯</a>
+        <a href="#f7" class="floor-btn">7F 維修室</a>
+        <a href="#f8" class="floor-btn">8F 頂樓</a>
+        <a href="#b1" class="floor-btn">B1 網管專區</a>
+      </nav>
+      <button id="lock-btn" class="floor-btn" style="background:#4c0519;color:#fda4af;border-color:#881337;" type="button">🔒 鎖定</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- ▲ 大廳 -->
+    <section id="lobby" class="hero">
+      <div>
+        <span class="badge">🔑 2026-11 查核修訂版</span>
+        <h1 style="font-size:36px;margin-bottom:8px;">一張鑰匙卡搭三台電梯</h1>
+        <p style="font-size:20px;font-weight:800;color:var(--teal);margin-bottom:12px;">Notion 整合權杖串接</p>
+        <div class="mono" style="display:inline-block;background:#0f172a;padding:8px 14px;border-radius:10px;border:1px solid #334155;font-size:13px;margin-bottom:18px;">
+          Gemini CLI • Codex CLI • Claude Code
+        </div>
+        <div class="tab-row">
+          <button id="swipe-btn" class="tab-btn active" type="button">🔑 刷卡進大樓</button>
+          <a href="#f1" class="floor-btn">直接看查核 →</a>
+          <a href="#b1" class="floor-btn">網管專區</a>
+        </div>
+      </div>
+      <div class="panel-dark">
+        <div class="mono" style="font-size:12px;color:#94a3b8;margin-bottom:8px;">CARD READER TERMINAL</div>
+        <pre id="reader-screen" style="color:#fbbf24;margin-bottom:12px;">請刷卡...
+NOTION_TOKEN = ?</pre>
+        <div id="keycard-box" style="background:rgba(45,212,191,0.12);border:1px solid var(--teal);border-radius:14px;padding:14px;cursor:pointer;">
+          <div style="font-size:12px;color:var(--teal);font-weight:800;">NOTION INTERNAL KEYCARD 🪪</div>
+          <div class="mono" style="font-size:18px;font-weight:800;color:#fff;margin-top:4px;">ntn_••••••••</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 1F 查核大廳 -->
+    <section id="f1">
+      <h2>1F 查核大廳（1F 原教學查核結果）</h2>
+      <p class="sub">逐項對照 Notion、Gemini CLI、OpenAI Codex、Claude Code 官方文件。方法可以用，但要更新成 2026 年的做法。（4 ✅ 正確，可保留 ｜ 5 ⚠️ 可以用，但要修正 ｜ 1 ❌ 說法錯誤）</p>
+      <div class="grid-2">
+        <div class="card-white" style="border-left:6px solid #f43f5e;">
+          <h3>1. [停更] 本機伺服器的維護狀態 ❌</h3>
+          <div class="strike">原文：這是比較好的新方法</div>
+          <p>官方 README 已標示不再積極維護，主推遠端 Notion MCP（OAuth），repo 未來可能停用。</p>
+        </div>
+        <div class="card-white" style="border-left:6px solid #f59e0b;">
+          <h3>2. [限定] 誰能建立整合 ⚠️</h3>
+          <div class="strike">原文：照步驟人人都能做</div>
+          <p>只有工作區擁有者能建立內部整合；學校老師多半要請管理者建立。</p>
+        </div>
+        <div class="card-white" style="border-left:6px solid #f59e0b;">
+          <h3>3. [語法] gemini mcp add ⚠️</h3>
+          <div class="strike mono">原文：gemini mcp add notion -e ... -- npx ...</div>
+          <p>選項放名稱前；預設寫入「專案」設定，要加 <code>-s user</code> 才是全域。</p>
+        </div>
+        <div class="card-white" style="border-left:6px solid #f59e0b;">
+          <h3>4. [資安] 權杖明碼 ⚠️</h3>
+          <div class="strike">原文：把 ntn_ 直接寫進 settings.json</div>
+          <p>三種 CLI 都能引用環境變數，設定檔只留變數名稱。</p>
+        </div>
+        <div class="card-white" style="border-left:6px solid #f59e0b;">
+          <h3>5. [改名] 介面名稱 ⚠️</h3>
+          <div class="strike">原文：Integration / Access → Edit access</div>
+          <p>Notion 正改名為 Connection；後台分頁叫 Content access。</p>
+        </div>
+        <div class="card-white" style="border-left:6px solid #f59e0b;">
+          <h3>6. [誇大] 「毫秒級」速度 ⚠️</h3>
+          <div class="strike">原文：遠端一定卡、本機一定毫秒級</div>
+          <p>體感描述；npx 首次要下載套件反而較慢。改說「少一層中繼、不用重登」。</p>
+        </div>
+        <div class="card-white" style="border-left:6px solid #10b981;">
+          <h3>7. [正確] ntn_ 與 secret_ ✅</h3>
+          <p>2024 年 9 月起新權杖為 <code>ntn_</code>，舊的 <code>secret_</code> 仍可用。</p>
+        </div>
+        <div class="card-white" style="border-left:6px solid #10b981;">
+          <h3>8. [正確] Windows 寫法、開門步驟、工具數 ✅</h3>
+          <p><code>npx.cmd</code>／<code>cmd /c</code> 正確；頁面 Connections 正確；v2.0 起 22 個工具。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2F 兩扇門：先選路線 -->
+    <section id="f2">
+      <h2>2F 兩扇門：先選路線</h2>
+      <p class="sub">遠端 OAuth 是官方主推；本機權杖控制範圍更細。</p>
+      <div class="grid-2">
+        <div class="card-white">
+          <h3>🚪 A 遠端 OAuth</h3>
+          <ul>
+            <li>✅ 官方主推、持續維護</li>
+            <li>瀏覽器登入，可能要重登</li>
+            <li>看得見你本人能看的頁面</li>
+            <li>不用 Node.js、人人可設</li>
+          </ul>
+        </div>
+        <div class="card-white">
+          <h3>🔑 B 本機權杖</h3>
+          <ul>
+            <li>⚠️ 已不再積極維護</li>
+            <li><code>ntn_</code> 權杖不過期</li>
+            <li>只看得見邀請過的頁面</li>
+            <li>要 Node.js + 擁有者身分</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3F 打一張門禁卡 -->
+    <section id="f3">
+      <h2>3F 打一張門禁卡（路線 B）</h2>
+      <p class="sub">建立內部整合 4 步驟與從零到能用標準順序：安裝 Node.js → 建立內部整合 → 複製 ntn_ 權杖 → 頁面 Add connections → 設定 NOTION_TOKEN → CLI 加入 notion → /mcp 測試</p>
+      <div class="grid-4">
+        <div class="card-white"><h3>Step 1 開後台</h3><p>前往 Notion Integrations 後台（Developer portal 的 Internal connections）。</p></div>
+        <div class="card-white"><h3>Step 2 建立整合</h3><p><code>New integration</code>／<code>Create a new connection</code>：取名「AI CLI 小幫手」、選工作區、類型 Internal。</p></div>
+        <div class="card-white"><h3>Step 3 複製權杖</h3><p><code>Configuration</code> 分頁 → <code>Internal Integration Secret</code> → <code>Show</code> → <code>Copy</code>。</p></div>
+        <div class="card-white"><h3>Step 4 勾權限</h3><p><code>Capabilities</code>：勾選 Read／Update／Insert content；使用者資訊選「不含 email」→ Save。</p></div>
+      </div>
+      <div class="panel-dark" style="margin-top:14px;border-color:#f59e0b;color:#fde68a;font-weight:700;font-size:14px;">
+        🔐 權杖＝備用鑰匙：不要貼到公開地方、不要放進 Git、不要出現在截圖裡
+      </div>
+    </section>
+
+    <!-- 4F 卡<ctrl42>開房門 -->
+    <section id="f4">
+      <h2>4F 卡<ctrl42>開房門</h2>
+      <p class="sub">新建的整合預設看不到任何頁面，九成的「找不到頁面」都是忘了這一步。</p>
+      <div class="grid-3">
+        <div class="card-white"><h3>方法 A: 在頁面裡</h3><p>母頁面右上 <code>•••</code> →（新版在 More 底下）<code>Connections</code> → <code>Add connections</code> → 搜尋小幫手 → Confirm。</p></div>
+        <div class="card-white"><h3>方法 B: 在後台</h3><p>整合設定頁 → <code>Content access</code> 分頁（舊版叫 Access）→ 勾選頁面或資料庫 → Save。</p></div>
+        <div class="card-white"><h3>繼承規則</h3><ul><li>授權母頁面，子頁面自動繼承</li><li>新的頂層頁面要再開一次</li><li>建在已授權頁面底下的不用</li></ul></div>
+      </div>
+    </section>
+
+    <!-- 5F 鑰匙放進環境變數 -->
+    <section id="f5">
+      <h2>5F 鑰匙放進環境變數</h2>
+      <p class="sub">不要把權杖寫死在設定檔。放進 NOTION_TOKEN，三台 CLI 都能共用，換卡時只改這裡。</p>
+      <div class="grid-2">
+        <div class="panel-dark">
+          <div class="mono" style="color:var(--lime);font-size:13px;font-weight:700;">【Mac／Linux】分頁（ZSH）</div>
+          <pre># 寫進 ~/.zshrc，之後每次開終端機都讀得到
+echo 'export NOTION_TOKEN="ntn_請換成你的權杖"' &gt;&gt; ~/.zshrc
+source ~/.zshrc
+
+# 確認
+echo $NOTION_TOKEN</pre>
+        </div>
+        <div class="panel-dark">
+          <div class="mono" style="color:var(--lime);font-size:13px;font-weight:700;">【Windows】分頁（POWERSHELL）</div>
+          <pre># 寫入使用者環境變數（要重開終端機才生效）
+setx NOTION_TOKEN "ntn_請換成你的權杖"
+
+# 重開後確認
+echo $env:NOTION_TOKEN</pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6F 三台電梯：設定產生器 -->
+    <section id="f6">
+      <h2>6F 三台電梯：設定產生器與三台速查表</h2>
+      <p class="sub">點選下方按鈕切換三台 CLI 指令與設定檔格式：</p>
+      <div class="panel-dark" style="margin-bottom:18px;">
+        <div class="tab-row">
+          <button type="button" class="tab-btn active cli-btn" data-cli="gemini">Gemini CLI</button>
+          <button type="button" class="tab-btn cli-btn" data-cli="codex">Codex CLI</button>
+          <button type="button" class="tab-btn cli-btn" data-cli="claude">Claude Code</button>
+          <button type="button" class="tab-btn cli-btn" data-cli="win">Windows 設定檔 (JSON / TOML)</button>
+        </div>
+        <pre id="cli-output"># 先移除舊設定（全域）
+gemini mcp remove -s user notion
+
+# 選項放在名稱前；-s user 寫入全域
+gemini mcp add -s user -e NOTION_TOKEN="$NOTION_TOKEN" notion npx -y @notionhq/notion-mcp-server</pre>
+      </div>
+      <div class="card-white" style="overflow-x:auto;">
+        <h3>📊 三台速查表</h3>
+        <table>
+          <thead><tr><th>項目</th><th>Gemini CLI</th><th>Codex CLI</th><th>Claude Code</th></tr></thead>
+          <tbody>
+            <tr><td><strong>設定檔</strong></td><td class="mono">~/.gemini/settings.json</td><td class="mono">~/.codex/config.toml</td><td class="mono">~/.claude.json / .mcp.json</td></tr>
+            <tr><td><strong>格式</strong></td><td class="mono">JSON</td><td class="mono">TOML</td><td class="mono">JSON</td></tr>
+            <tr><td><strong>引用變數</strong></td><td class="mono">"$NOTION_TOKEN"</td><td class="mono">env_vars = ["NOTION_TOKEN"]</td><td class="mono">"${NOTION_TOKEN}"</td></tr>
+            <tr><td><strong>全域範圍</strong></td><td class="mono">-s user</td><td>預設即全域</td><td class="mono">--scope user</td></tr>
+            <tr><td><strong>看狀態</strong></td><td class="mono">gemini mcp list / /mcp</td><td class="mono">codex mcp list / /mcp</td><td class="mono">claude mcp list / /mcp</td></tr>
+            <tr><td><strong>特別注意</strong></td><td>資料夾要 gemini trust</td><td>逾時預設 10 秒，調 60</td><td>--env 後不可直接接名稱</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 7F 電梯維修室 -->
+    <section id="f7">
+      <h2>7F 電梯維修室（8 大症狀診斷 ＆ 出電梯前小考）</h2>
+      <p class="sub">先重開 CLI、輸入 /mcp 確認 notion 已連線，再測試：「請用 Notion 工具搜尋我授權的頁面，列出前 5 筆標題。」</p>
+      <div class="grid-2" style="margin-bottom:18px;">
+        <div class="card-white"><h3>1. 找不到頁面 []</h3><p>原因：頁面沒有 Connect 給整合。<br>解法：母頁面 ••• → Connections → Add connections，或後台 Content access 勾選。</p></div>
+        <div class="card-white"><h3>2. 401 Unauthorized</h3><p>原因：權杖貼錯、有空白、已 Refresh 失效，或環境變數沒讀到。<br>解法：終端機 echo $NOTION_TOKEN 確認；重開終端機與 CLI。</p></div>
+        <div class="card-white"><h3>3. 403 權限不足</h3><p>原因：Capabilities 沒勾 Update／Insert。<br>解法：後台 Configuration 勾選後 Save。</p></div>
+        <div class="card-white"><h3>4. spawn npx ENOENT</h3><p>原因：Windows 的 npx 其實是 npx.cmd。<br>解法：command 改 npx.cmd，或 cmd /c npx -y ...。</p></div>
+        <div class="card-white"><h3>5. Codex 啟動逾時</h3><p>原因：npx 第一次下載套件超過預設 10 秒。<br>解法：config.toml 加 startup_timeout_sec = 60。</p></div>
+        <div class="card-white"><h3>6. Gemini 一直 DISCONNECTED</h3><p>原因：本機（stdio）伺服器只在信任的資料夾連線。<br>解法：在該資料夾執行 gemini trust。</p></div>
+        <div class="card-white"><h3>7. Claude Code 名稱格式錯</h3><p>原因：--env 後面直接接了名稱，被當成另一組 KEY=value。<br>解法：在 --env 與名稱之間放 --scope user。</p></div>
+        <div class="card-white"><h3>8. 叫不到 database 查詢</h3><p>原因：v2.0 起資料庫改叫 data source，舊工具已移除。<br>解法：改說「查詢資料來源（data source）」。</p></div>
+      </div>
+      <div class="panel-dark">
+        <h3 style="color:var(--lime);margin-bottom:10px;">🎯 出電梯前的小考（5 題重點解析）</h3>
+        <ol style="padding-left:20px;font-size:14px;color:#e2e8f0;display:flex;flex-direction:column;gap:8px;">
+          <li><strong>本機 @notionhq/notion-mcp-server 目前的官方狀態是？</strong> → 不再積極維護，官方主推遠端 MCP（目前仍可使用）。</li>
+          <li><strong>誰可以建立 Notion 內部整合？</strong> → 只有工作區擁有者（Workspace Owner）。</li>
+          <li><strong>gemini mcp add 不加 -s 時，設定會寫到哪？</strong> → 目前資料夾的專案設定（預設 scope 是 project，要加 -s user）。</li>
+          <li><strong>Codex 想直接轉送系統的 NOTION_TOKEN，要用哪個欄位？</strong> → <code>env_vars = ["NOTION_TOKEN"]</code>。</li>
+          <li><strong>權杖設好了，AI 卻說找不到任何頁面，最可能是？</strong> → 忘了在頁面 Add connections（新整合預設看不到任何頁面）。</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- 8F 頂樓：路線 A 與資安 -->
+    <section id="f8">
+      <h2>8F 頂樓：路線 A 與資安</h2>
+      <p class="sub">不是工作區擁有者？直接走路線 A，第一次會跳出瀏覽器請你登入 Notion。</p>
+      <div class="panel-dark" style="margin-bottom:16px;">
+        <div class="mono" style="color:var(--teal);font-size:12px;font-weight:700;">REMOTE OAUTH 指令</div>
+        <pre>gemini mcp add -s user -t http notion [遠端MCP網址: mcp.notion.com/mcp]
+
+codex mcp add notion --url [遠端MCP網址: mcp.notion.com/mcp]
+codex mcp login notion
+
+claude mcp add --transport http --scope user notion [遠端MCP網址: mcp.notion.com/mcp]</pre>
+      </div>
+      <div class="grid-3">
+        <div class="card-white"><h3>🔄 權杖外洩</h3><p>整合設定頁 Configuration → Refresh，舊權杖立即作廢；更新環境變數即可，三台 CLI 設定不用改。</p></div>
+        <div class="card-white"><h3>👥 一卡多用</h3><p>三台共用一張卡很方便，但寫入都記在同一個整合名下；要分開追蹤就建三個整合。</p></div>
+        <div class="card-white"><h3>🏫 學校情境</h3><p>學生 Chromebook 不能直接跑這些 CLI；本教學適合在老師或網管的 Mac／Windows 上設定。</p></div>
+      </div>
+    </section>
+
+    <!-- B1 網管・講師專區 -->
+    <section id="b1">
+      <h2>B1 網管・講師專區</h2>
+      <div class="grid-3">
+        <div class="card-white">
+          <h3>⏱️ 研習流程（約 90 分鐘）</h3>
+          <ol>
+            <li>1F 查核結論與兩條路線（15 分）</li>
+            <li>3F–5F 建立整合、開門、環境變數（25 分）</li>
+            <li>6F 每人用產生器設定一台 CLI（30 分）</li>
+            <li>7F 測試、症狀診斷、小考（20 分）</li>
+          </ol>
+        </div>
+        <div class="card-white">
+          <h3>📋 事前準備</h3>
+          <ul>
+            <li>確認誰是工作區擁有者</li>
+            <li>老師電腦先裝 Node.js LTS</li>
+            <li>準備一個測試用的母頁面</li>
+            <li>非擁有者改走路線 A</li>
+          </ul>
+        </div>
+        <div class="card-white">
+          <h3>🔊 聲音設定</h3>
+          <ul>
+            <li>音效、音樂預設關閉，右上角開</li>
+            <li>[ ] 調背景音樂音量</li>
+            <li>捲到不同樓層會換曲</li>
+            <li>全班同時用建議戴耳機</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer-glow">
+      <div class="access-text mono">ACCESS GRANTED</div>
+      <p style="font-size:12px;color:#94a3b8;margin-top:8px;">AI 大樓：一張 Notion 鑰匙卡搭三台電梯 · 門禁密碼保護版</p>
+    </footer>
+  </main>
+
+  <script>
+    (function () {
+      var PASS = 'nato';
+      var gate = document.getElementById('password-gate');
+      var input = document.getElementById('pwd-input');
+      var err = document.getElementById('pwd-err');
+      var led = document.getElementById('gate-led');
+      var unlockBtn = document.getElementById('unlock-btn');
+      var lockBtn = document.getElementById('lock-btn');
+
+      function tryUnlock() {
+        var val = (input.value || '').trim().toLowerCase();
+        if (val === PASS) {
+          try { sessionStorage.setItem('ai_notion_unlocked', '1'); } catch (e) {}
+          err.style.display = 'none';
+          gate.classList.add('hidden');
+        } else {
+          err.style.display = 'block';
+          led.textContent = '● ACCESS DENIED';
+          led.style.color = '#fb7185';
+        }
+      }
+      unlockBtn.addEventListener('click', tryUnlock);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') tryUnlock(); });
+      lockBtn.addEventListener('click', function () {
+        try { sessionStorage.removeItem('ai_notion_unlocked'); } catch (e) {}
+        input.value = '';
+        err.style.display = 'none';
+        gate.classList.remove('hidden');
+      });
+      try { if (sessionStorage.getItem('ai_notion_unlocked') === '1') gate.classList.add('hidden'); } catch (e) {}
+
+      function swipeCard() {
+        document.getElementById('reader-screen').textContent = '✅ ACCESS GRANTED\nNOTION_TOKEN = "ntn_89a7b6c5..."';
+        document.getElementById('reader-screen').style.color = '#2dd4bf';
+      }
+      document.getElementById('swipe-btn').addEventListener('click', swipeCard);
+      document.getElementById('keycard-box').addEventListener('click', swipeCard);
+
+      var cliMap = {
+        gemini: '# 先移除舊設定（全域）\ngemini mcp remove -s user notion\n\n# 選項放在名稱前；-s user 寫入全域\ngemini mcp add -s user -e NOTION_TOKEN="$NOTION_TOKEN" notion npx -y @notionhq/notion-mcp-server',
+        codex: 'codex mcp add notion --env NOTION_TOKEN="$NOTION_TOKEN" -- npx -y @notionhq/notion-mcp-server',
+        claude: '# --env 與名稱中間要夾一個選項（這裡放 --scope user）\nclaude mcp add --env NOTION_TOKEN="$NOTION_TOKEN" --scope user notion -- npx -y @notionhq/notion-mcp-server',
+        win: '// Gemini (~/.gemini/settings.json) & Claude (.mcp.json) Windows 設定檔：\n{\n  "mcpServers": {\n    "notion": {\n      "command": "cmd",\n      "args": ["/c", "npx", "-y", "@notionhq/notion-mcp-server"],\n      "env": { "NOTION_TOKEN": "$NOTION_TOKEN" }\n    }\n  }\n}\n\n# Codex (~/.codex/config.toml) Windows 設定檔：\n[mcp_servers.notion]\ncommand = "cmd"\nargs = ["/c", "npx", "-y", "@notionhq/notion-mcp-server"]\nenv_vars = ["NOTION_TOKEN"]\nstartup_timeout_sec = 60'
+      };
+      var btns = document.querySelectorAll('.cli-btn');
+      btns.forEach(function (b) {
+        b.addEventListener('click', function () {
+          btns.forEach(function (x) { x.classList.remove('active'); });
+          b.classList.add('active');
+          document.getElementById('cli-output').textContent = cliMap[b.getAttribute('data-cli')];
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
